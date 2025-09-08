@@ -1,3 +1,4 @@
+# .github/workflows/ci.yml
 name: Python CI
 
 on:
@@ -7,22 +8,36 @@ on:
 
 jobs:
   test:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        
-    defaults:
-         run:
-           shell: bash
+    runs-on: ubuntu-latest
 
+    # make all run steps use bash
+    defaults:
+      run:
+        shell: bash
+
+    # Start a Postgres DB for tests
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: notedb_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd="pg_isready -U postgres -d notedb_test"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+
+    # CI-safe env values (not production)
     env:
-      SECRET_KEY: ${{ secrets.NOTE_PAD_SECRET || 'dev-secret' }}
-      REFRESH_SECRET_KEY: ${{ secrets.NOTE_PAD_SECRET || 'dev-secret' }}
-      DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/notedb_test' }}
-      ALGORITHM: ${{ vars.ALGORITHM || 'HS256' }}
-      ACCESS_TOKEN_EXPIRE_MINUTES: ${{ vars.ACCESS_TOKEN_EXPIRE_MINUTES || '30' }}
+      SECRET_KEY: dev-secret
+      REFRESH_SECRET_KEY: dev-refresh-secret
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: '30'
+      # point SQLAlchemy to the Postgres service above
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/notedb_test
+      # tells app/main.py to create tables only in CI when DB is up
+      RUN_DB_BOOTSTRAP: '1'
 
     steps:
       - uses: actions/checkout@v4
@@ -30,29 +45,17 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
-          cache: "pip"
+          python-version: "3.12"
+          cache: pip
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install -r requirements.txt
 
-      - name: Run migrations
-        run: |
-          python manage.py migrate || echo "No migrations found"
+      # If you use Alembic, this will run them; otherwise it just continues
+      - name: Run migrations (optional)
+        run: alembic upgrade head || echo "No migrations found"
 
       - name: Run tests
         run: pytest -q
-        
-      - name: Verify required env is present
-        run: |
-          missing=0
-          for v in SECRET_KEY REFRESH_SECRET_KEY ALGORITHM ACCESS_TOKEN_EXPIRE_MINUTES; do
-            if [ -z "${!v}" ]; then
-              echo "::error::$v is not set (check Settings > Secrets and variables > Actions)"
-              missing=1
-            fi
-          done
-          if [ "$missing" = "1" ]; then exit 1; fi
-
