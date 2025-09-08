@@ -6,4 +6,4 @@ exclude = ["alembic", "migrations", ".venv"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
-ignore = ["B008"]
+ignore = ["B008", "UP035"]
