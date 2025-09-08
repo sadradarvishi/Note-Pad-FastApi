@@ -44,3 +44,15 @@ jobs:
 
       - name: Run tests
         run: pytest -q
+        
+      - name: Verify required env is present
+        run: |
+          missing=0
+          for v in SECRET_KEY REFRESH_SECRET_KEY ALGORITHM ACCESS_TOKEN_EXPIRE_MINUTES; do
+            if [ -z "${!v}" ]; then
+              echo "::error::$v is not set (check Settings > Secrets and variables > Actions)"
+              missing=1
+            fi
+          done
+          if [ "$missing" = "1" ]; then exit 1; fi
+
