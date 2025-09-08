@@ -9,12 +9,10 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    # make all run steps use bash
     defaults:
       run:
         shell: bash
 
-    # Start a Postgres DB for tests
     services:
       postgres:
         image: postgres:16
@@ -27,15 +25,14 @@ jobs:
           --health-cmd="pg_isready -U postgres -d notedb_test"
           --health-interval=10s --health-timeout=5s --health-retries=10
 
-    # CI-safe env values (not production)
     env:
       SECRET_KEY: dev-secret
       REFRESH_SECRET_KEY: dev-refresh-secret
       ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: '30'
-      # point SQLAlchemy to the Postgres service above
+
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/notedb_test
-      # tells app/main.py to create tables only in CI when DB is up
+
       RUN_DB_BOOTSTRAP: '1'
 
     steps:
@@ -52,7 +49,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # If you use Alembic, this will run them; otherwise it just continues
       - name: Run migrations (optional)
         run: alembic upgrade head || echo "No migrations found"
 
