@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -9,7 +11,8 @@ from app.routers.user_router import router as user_router
 
 app = FastAPI(title="Notes API")
 
-Base.metadata.create_all(bind=engine)
+if os.getenv("RUN_DB_BOOTSTRAP") == "1":
+    Base.metadata.create_all(bind=engine)
 
 app.add_middleware(
     CORSMiddleware,
